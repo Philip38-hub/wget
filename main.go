@@ -6,8 +6,85 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 )
+
+// ProgressReader wraps an io.Reader to track download progress
+type ProgressReader struct {
+	reader     io.Reader
+	total      int64
+	downloaded int64
+	lastUpdate time.Time
+	speed      float64
+}
+
+func NewProgressReader(reader io.Reader, total int64) *ProgressReader {
+	return &ProgressReader{
+		reader:     reader,
+		total:      total,
+		lastUpdate: time.Now(),
+	}
+}
+
+func (pr *ProgressReader) Read(p []byte) (int, error) {
+	n, err := pr.reader.Read(p)
+	if n > 0 {
+		pr.downloaded += int64(n)
+		pr.updateProgress()
+	}
+	return n, err
+}
+
+func (pr *ProgressReader) updateProgress() {
+	now := time.Now()
+	duration := now.Sub(pr.lastUpdate).Seconds()
+	if duration > 0.1 { // Update every 100ms
+		// Calculate speed in bytes per second
+		pr.speed = float64(pr.downloaded) / duration
+
+		// Calculate percentage
+		percentage := float64(pr.downloaded) * 100 / float64(pr.total)
+
+		// Create progress bar
+		width := 50
+		completed := int(float64(width) * float64(pr.downloaded) / float64(pr.total))
+		bar := strings.Repeat("=", completed) + strings.Repeat(" ", width-completed)
+
+		// Format sizes
+		downloadedSize := formatSize(pr.downloaded)
+		totalSize := formatSize(pr.total)
+		speedStr := formatSize(int64(pr.speed)) + "/s"
+
+		// Calculate remaining time
+		remaining := "0s"
+		if pr.speed > 0 {
+			remainingSecs := float64(pr.total-pr.downloaded) / pr.speed
+			remaining = fmt.Sprintf("%.1fs", remainingSecs)
+		}
+
+		// Print progress
+		fmt.Printf("\r%s / %s [%s] %.2f%% %s %s", 
+			downloadedSize, totalSize, bar, percentage, speedStr, remaining)
+
+		if pr.downloaded == pr.total {
+			fmt.Println()
+		}
+	}
+}
+
+func formatSize(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%d B", bytes)
+	}
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+	return fmt.Sprintf("%.2f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+}
 
 func main() {
 	if len(os.Args) != 2 {
@@ -53,9 +130,11 @@ func downloadFile(url string) error {
 	}
 	defer out.Close()
 
-	// Copy the response body to the file
-	// TODO: Implement progress bar
-	_, err = io.Copy(out, resp.Body)
+	// Create progress reader
+	progressReader := NewProgressReader(resp.Body, size)
+
+	// Copy the response body to the file with progress tracking
+	_, err = io.Copy(out, progressReader)
 	if err != nil {
 		return fmt.Errorf("failed to save file: %v", err)
 	}
