@@ -16,7 +16,7 @@ This project recreates the fundamental features of wget using Go. Wget is a free
 
 ## Usage
 ```bash
-go run . https://example.com/file.txt
+go run . https://github.com/mozilla/pdf.js/raw/master/test/pdfs/tracemonkey.pdf
 ```
 
 ## Example Output
