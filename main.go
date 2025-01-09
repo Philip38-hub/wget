@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"runtime"
 	"wget/downloadutils"
 	"wget/flagutils"
 )
@@ -38,11 +39,26 @@ func main() {
 			fmt.Printf("Error reading URLs: %v\n", err)
 			os.Exit(1)
 		}
-		// TODO: Implement concurrent downloads
-		for _, url := range urls {
-			if err := downloadutils.DownloadFile(url, opts); err != nil {
-				fmt.Printf("Error downloading %s: %v\n", url, err)
+
+		// Use concurrent downloader
+		workers := runtime.NumCPU() // Use number of CPUs as worker count
+		downloader := downloadutils.NewConcurrentDownloader(workers, opts)
+		
+		fmt.Printf("Starting download of %d files using %d workers\n", len(urls), workers)
+		results := downloader.DownloadURLs(urls)
+
+		// Print summary
+		successful := 0
+		for _, result := range results {
+			if result.Success {
+				successful++
 			}
+		}
+		fmt.Printf("\nDownload complete: %d successful, %d failed\n", 
+			successful, len(results)-successful)
+		
+		if successful != len(results) {
+			os.Exit(1)
 		}
 		return
 	}
