@@ -8,22 +8,27 @@ import (
 )
 
 func main() {
+	// Store original stdout
+	originalStdout := os.Stdout
+
 	// Parse command line flags
 	opts, err := flagutils.ParseFlags()
 	if err != nil {
-		fmt.Printf("Error: %v\n", err)
+		fmt.Fprintf(originalStdout, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
 	// Handle background download
 	if opts.Background {
-		logFile, err := flagutils.HandleBackground(opts)
+		logFile, err := flagutils.HandleBackground()
 		if err != nil {
-			fmt.Printf("Error: %v\n", err)
+			fmt.Fprintf(originalStdout, "Error: %v\n", err)
 			os.Exit(1)
 		}
-		defer logFile.Close()
-		// TODO: Redirect stdout to logFile
+		defer func() {
+			logFile.Close()
+			flagutils.RestoreStdout(originalStdout)
+		}()
 	}
 
 	// Handle multiple URLs from input file

@@ -11,15 +11,30 @@ import (
 )
 
 // HandleBackground sets up background download and logging
-func HandleBackground(opts *models.Options) (*os.File, error) {
-	logFile, err := os.Create("wget-log")
+func HandleBackground() (*os.File, error) {
+	// Create or truncate the log file
+	logFile, err := os.OpenFile("wget-log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create log file: %v", err)
 	}
 
-	// Redirect output to log file
-	fmt.Println("Output will be written to \"wget-log\"")
+	// Redirect stdout to the log file
+	originalStdout := os.Stdout
+	os.Stdout = logFile
+
+	// Print initial message to terminal
+	_, err = fmt.Fprintln(originalStdout, "Output will be written to \"wget-log\"")
+	if err != nil {
+		logFile.Close()
+		return nil, err
+	}
+
 	return logFile, nil
+}
+
+// RestoreStdout restores the original stdout
+func RestoreStdout(original *os.File) {
+	os.Stdout = original
 }
 
 // GetOutputPath returns the full path for saving the file
