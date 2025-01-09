@@ -2,7 +2,7 @@ package downloadutils
 
 import "fmt"
 
-// FormatSize converts bytes to human readable string format
+// FormatSize formats a byte size into a human-readable string
 func FormatSize(bytes int64) string {
 	const unit = 1024
 	if bytes < unit {
@@ -13,5 +13,5 @@ func FormatSize(bytes int64) string {
 		div *= unit
 		exp++
 	}
-	return fmt.Sprintf("%.2f %ciB", float64(bytes)/float64(div), "KMGTPE"[exp])
+	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }

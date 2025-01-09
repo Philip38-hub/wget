@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"time"
+	"wget/flagutils"
 	"wget/models"
 )
 
@@ -54,8 +55,21 @@ func DownloadFile(url string, opts *models.Options) error {
 	}
 	defer out.Close()
 
-	// Create progress reader and start download
-	progressReader := NewProgressReader(resp.Body, size)
+	// Set up the download chain: response body -> rate limiter -> progress tracker -> file
+	reader := resp.Body
+
+	// Apply rate limiting if specified
+	if opts.RateLimit != "" {
+		rateLimit, err := flagutils.ParseRateLimit(opts.RateLimit)
+		if err != nil {
+			return fmt.Errorf("invalid rate limit: %v", err)
+		}
+		reader = NewRateLimitedReader(reader, rateLimit)
+		fmt.Printf("Rate limit set to: %s/s\n", FormatSize(rateLimit))
+	}
+
+	// Create progress reader
+	progressReader := NewProgressReader(reader, size, opts.IsLogging)
 
 	// Copy the response body to the file with progress tracking
 	_, err = io.Copy(out, io.TeeReader(progressReader, out))

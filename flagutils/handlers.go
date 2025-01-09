@@ -5,13 +5,14 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"wget/models"
 )
 
 // HandleBackground sets up background download and logging
-func HandleBackground() (*os.File, error) {
+func HandleBackground(opts *models.Options) (*os.File, error) {
 	// Create or truncate the log file
 	logFile, err := os.OpenFile("wget-log", os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
@@ -28,6 +29,9 @@ func HandleBackground() (*os.File, error) {
 		logFile.Close()
 		return nil, err
 	}
+
+	// Set logging flag
+	opts.IsLogging = true
 
 	return logFile, nil
 }
@@ -48,6 +52,12 @@ func GetOutputPath(opts *models.Options, url string) string {
 
 // ParseRateLimit converts rate limit string to bytes per second
 func ParseRateLimit(rateStr string) (int64, error) {
+	// Validate format using regex
+	validFormat := regexp.MustCompile(`^\d+[kKmM]?$`)
+	if !validFormat.MatchString(rateStr) {
+		return 0, fmt.Errorf("invalid rate limit format. Must be a number followed by optional k/K/m/M suffix")
+	}
+
 	rateStr = strings.ToLower(rateStr)
 	var multiplier int64 = 1
 
@@ -62,7 +72,11 @@ func ParseRateLimit(rateStr string) (int64, error) {
 
 	rate, err := strconv.ParseInt(rateStr, 10, 64)
 	if err != nil {
-		return 0, fmt.Errorf("invalid rate limit format: %s", rateStr)
+		return 0, fmt.Errorf("invalid rate limit number: %s", rateStr)
+	}
+
+	if rate <= 0 {
+		return 0, fmt.Errorf("rate limit must be greater than 0")
 	}
 
 	return rate * multiplier, nil

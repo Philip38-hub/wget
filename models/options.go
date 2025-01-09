@@ -16,6 +16,8 @@ type Options struct {
 	Mirror bool
 	// URL to download (non-flag argument)
 	URL string
+	// Track if we're writing to a log file
+	IsLogging bool
 }
 
 // NewOptions creates a new Options instance with default values

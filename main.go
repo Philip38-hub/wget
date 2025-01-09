@@ -20,7 +20,7 @@ func main() {
 
 	// Handle background download
 	if opts.Background {
-		logFile, err := flagutils.HandleBackground()
+		logFile, err := flagutils.HandleBackground(opts)
 		if err != nil {
 			fmt.Fprintf(originalStdout, "Error: %v\n", err)
 			os.Exit(1)
