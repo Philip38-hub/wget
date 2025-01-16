@@ -3,69 +3,47 @@ package main
 import (
 	"fmt"
 	"os"
-	"runtime"
-	"wget/downloadutils"
+	"path/filepath"
 	"wget/flagutils"
+	"wget/mirrorutils"
 )
 
 func main() {
-	// Store original stdout
-	originalStdout := os.Stdout
-
 	// Parse command line flags
 	opts, err := flagutils.ParseFlags()
 	if err != nil {
-		fmt.Fprintf(originalStdout, "Error: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Handle background download
-	if opts.Background {
-		logFile, err := flagutils.HandleBackground(opts)
-		if err != nil {
-			fmt.Fprintf(originalStdout, "Error: %v\n", err)
-			os.Exit(1)
+	// Handle mirror mode
+	if opts.Mirror {
+		// Set output directory
+		outputDir := filepath.Join(".", "mirrors")
+		if opts.OutputPath != "" {
+			outputDir = opts.OutputPath
 		}
-		defer func() {
-			logFile.Close()
-			flagutils.RestoreStdout(originalStdout)
-		}()
-	}
 
-	// Handle multiple URLs from input file
-	if opts.InputFile != "" {
-		urls, err := flagutils.ReadURLsFromFile(opts.InputFile)
-		if err != nil {
-			fmt.Printf("Error reading URLs: %v\n", err)
+		// Create mirror options
+		mirrorOpts := mirrorutils.NewMirrorOptions(opts.URL, outputDir, opts.ConvertLinks, opts.RejectTypes, opts.ExcludePaths)
+		if mirrorOpts == nil {
+			fmt.Fprintf(os.Stderr, "Error: Failed to create mirror options\n")
 			os.Exit(1)
 		}
 
-		// Use concurrent downloader
-		workers := runtime.NumCPU() // Use number of CPUs as worker count
-		downloader := downloadutils.NewConcurrentDownloader(workers, opts)
-		
-		fmt.Printf("Starting download of %d files using %d workers\n", len(urls), workers)
-		results := downloader.DownloadURLs(urls)
+		// Start mirroring
+		fmt.Printf("Starting mirror of %s\n", opts.URL)
+		fmt.Printf("Output directory: %s\n", outputDir)
 
-		// Print summary
-		successful := 0
-		for _, result := range results {
-			if result.Success {
-				successful++
-			}
-		}
-		fmt.Printf("\nDownload complete: %d successful, %d failed\n", 
-			successful, len(results)-successful)
-		
-		if successful != len(results) {
+		if err := mirrorOpts.Mirror(); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)
 		}
+
+		fmt.Printf("\nMirroring complete. You can use a tool like 'live-server' to view the mirrored content.\n")
 		return
 	}
 
-	// Single URL download
-	if err := downloadutils.DownloadFile(opts.URL, opts); err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
+	fmt.Fprintf(os.Stderr, "Error: No URL specified\n")
+	os.Exit(1)
 }

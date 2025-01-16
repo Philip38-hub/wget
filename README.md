@@ -7,7 +7,14 @@ This project recreates the fundamental features of wget using Go. Wget is a free
 
 ## Current Features
 - Download a file from a given URL
-- Display download progress including:
+- Mirror websites with:
+  - Recursive downloading
+  - Link conversion for offline viewing
+  - Cross-origin resource handling
+  - Depth control
+- Multiple URL downloads from input file
+- Background downloads with logging
+- Progress tracking including:
   - Start time
   - Request status
   - File size
@@ -15,8 +22,25 @@ This project recreates the fundamental features of wget using Go. Wget is a free
   - End time
 
 ## Usage
+
+### Single File Download
 ```bash
-go run . https://github.com/mozilla/pdf.js/raw/master/test/pdfs/tracemonkey.pdf
+go run . https://example.com/file.txt
+```
+
+### Mirror Website
+```bash
+go run . --mirror --convert-links https://example.com
+```
+
+### Download Multiple URLs
+```bash
+go run . -i urls.txt
+```
+
+### Background Download
+```bash
+go run . -B https://example.com/file.txt
 ```
 
 ## Example Output
@@ -29,3 +53,9 @@ saving file to: ./file.txt
 Downloaded [https://example.com/file.txt]
 finished at 2025-01-08 19:02:43
 ```
+
+## Viewing Mirrored Websites
+After mirroring a website, you can use any static file server to view the content. For example:
+- Use VS Code's Live Server extension
+- Use Python's built-in server: `python -m http.server`
+- Use Node.js's `live-server` package
