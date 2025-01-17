@@ -2,8 +2,8 @@ package models
 
 // Options holds the command line options
 type Options struct {
-	// URL to download (non-flag argument)
-	URL           string
+	// URLs to download (non-flag arguments)
+	URLs          []string
 	// Background download flag
 	Background    bool
 	// Custom output filename
@@ -33,5 +33,6 @@ func NewOptions() *Options {
 	return &Options{
 		Background: false,
 		OutputPath: ".",
+		URLs:      []string{},
 	}
 }

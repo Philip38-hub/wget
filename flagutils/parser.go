@@ -4,105 +4,81 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"path/filepath"
 	"strings"
 	"wget/models"
 )
 
 // ParseFlags parses command line arguments and returns Options
 func ParseFlags() (*models.Options, error) {
-	opts := &models.Options{}
+	// Create a new FlagSet to avoid global state
+	fs := flag.NewFlagSet(os.Args[0], flag.ExitOnError)
+	opts := models.NewOptions()
 
 	// Define flags
-	flag.BoolVar(&opts.Background, "B", false, "Go to background after startup")
-	flag.StringVar(&opts.OutputFile, "O", "", "Write documents to FILE")
-	flag.StringVar(&opts.OutputPath, "P", "", "Save files to PATH")
-	flag.StringVar(&opts.RateLimit, "rate-limit", "", "Limit the download speed to rate (e.g., 100k or 1M)")
-	flag.StringVar(&opts.InputFile, "i", "", "Read URLs from file")
-	flag.BoolVar(&opts.Mirror, "mirror", false, "Mirror website")
+	fs.BoolVar(&opts.Background, "B", false, "Go to background after startup")
+	fs.StringVar(&opts.OutputFile, "O", "", "Write documents to FILE")
+	fs.StringVar(&opts.OutputPath, "P", "", "Save files to PATH")
+	fs.StringVar(&opts.RateLimit, "rate-limit", "", "Limit the download speed to rate (e.g., 100k or 1M)")
+	fs.StringVar(&opts.InputFile, "i", "", "Read URLs from file")
+	fs.BoolVar(&opts.Mirror, "mirror", false, "Mirror website")
 
 	// Mirror-related flags
 	var rejectListShort, rejectListLong string
-	flag.StringVar(&rejectListShort, "R", "", "Reject file types (comma-separated list)")
-	flag.StringVar(&rejectListLong, "reject", "", "Reject file types (comma-separated list)")
+	fs.StringVar(&rejectListShort, "R", "", "Reject file types (comma-separated list)")
+	fs.StringVar(&rejectListLong, "reject", "", "Reject file types (comma-separated list)")
 
 	var excludeListShort, excludeListLong string
-	flag.StringVar(&excludeListShort, "X", "", "Exclude directories (comma-separated list)")
-	flag.StringVar(&excludeListLong, "exclude", "", "Exclude directories (comma-separated list)")
+	fs.StringVar(&excludeListShort, "X", "", "Exclude directories (comma-separated list)")
+	fs.StringVar(&excludeListLong, "exclude", "", "Exclude directories (comma-separated list)")
 
-	flag.BoolVar(&opts.ConvertLinks, "convert-links", false, "Convert links for offline viewing")
-	flag.BoolVar(&opts.UseDynamic, "dynamic", true, "Enable JavaScript rendering")
+	fs.BoolVar(&opts.ConvertLinks, "convert-links", false, "Convert links for offline viewing")
+	fs.BoolVar(&opts.UseDynamic, "dynamic", true, "Enable JavaScript rendering")
 
 	// Custom usage message
-	flag.Usage = func() {
+	fs.Usage = func() {
 		fmt.Fprintf(os.Stderr, "Usage: %s [options] URL\n\nOptions:\n", os.Args[0])
-		flag.PrintDefaults()
+		fs.PrintDefaults()
 	}
 
-	// Parse flags
-	flag.Parse()
+	// Parse flags, but skip the program name
+	if err := fs.Parse(os.Args[1:]); err != nil {
+		return nil, err
+	}
 
-	// Get URL from remaining arguments
-	args := flag.Args()
+	// Get URLs from remaining arguments
+	args := fs.Args()
 	if len(args) < 1 && opts.InputFile == "" {
 		return nil, fmt.Errorf("no URL specified")
 	}
-	if len(args) > 0 {
-		opts.URL = args[0]
-	}
 
-	// Process reject list
-	rejectList := rejectListShort
+	// Store URLs
+	opts.URLs = args
+
+	// Process reject lists (combine short and long options)
+	rejectTypes := []string{}
+	if rejectListShort != "" {
+		rejectTypes = append(rejectTypes, strings.Split(rejectListShort, ",")...)
+	}
 	if rejectListLong != "" {
-		rejectList = rejectListLong
+		rejectTypes = append(rejectTypes, strings.Split(rejectListLong, ",")...)
 	}
-	if rejectList != "" {
-		opts.RejectTypes = strings.Split(rejectList, ",")
-		// Clean up the reject types
-		for i := range opts.RejectTypes {
-			opts.RejectTypes[i] = strings.TrimSpace(opts.RejectTypes[i])
-			// Remove leading dot if present
-			opts.RejectTypes[i] = strings.TrimPrefix(opts.RejectTypes[i], ".")
-		}
+	for i := range rejectTypes {
+		rejectTypes[i] = strings.TrimSpace(rejectTypes[i])
 	}
+	opts.RejectTypes = rejectTypes
 
-	// Process exclude list
-	excludeList := excludeListShort
+	// Process exclude lists (combine short and long options)
+	excludePaths := []string{}
+	if excludeListShort != "" {
+		excludePaths = append(excludePaths, strings.Split(excludeListShort, ",")...)
+	}
 	if excludeListLong != "" {
-		excludeList = excludeListLong
+		excludePaths = append(excludePaths, strings.Split(excludeListLong, ",")...)
 	}
-	if excludeList != "" {
-		opts.ExcludePaths = strings.Split(excludeList, ",")
-		// Clean up the exclude paths
-		for i := range opts.ExcludePaths {
-			opts.ExcludePaths[i] = strings.TrimSpace(opts.ExcludePaths[i])
-			// Remove leading and trailing slashes
-			opts.ExcludePaths[i] = strings.Trim(opts.ExcludePaths[i], "/")
-		}
+	for i := range excludePaths {
+		excludePaths[i] = strings.TrimSpace(excludePaths[i])
 	}
-
-	// Validate output path
-	if opts.OutputPath != "" {
-		absPath, err := filepath.Abs(opts.OutputPath)
-		if err != nil {
-			return nil, fmt.Errorf("invalid output path: %v", err)
-		}
-		opts.OutputPath = absPath
-	} else {
-		// Use current directory if no path specified
-		currentDir, err := os.Getwd()
-		if err != nil {
-			return nil, fmt.Errorf("failed to get current directory: %v", err)
-		}
-		opts.OutputPath = currentDir
-	}
-
-	// Validate input file exists if specified
-	if opts.InputFile != "" {
-		if _, err := os.Stat(opts.InputFile); os.IsNotExist(err) {
-			return nil, fmt.Errorf("input file does not exist: %s", opts.InputFile)
-		}
-	}
+	opts.ExcludePaths = excludePaths
 
 	return opts, nil
 }
