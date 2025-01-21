@@ -5,13 +5,13 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/chromedp/cdproto/network"
+	"github.com/chromedp/cdproto/network" //allows for interaction with a headless browser
 	"github.com/chromedp/chromedp"
-	"wget/pkg/types"
+	"wget/models"
 )
 
 // getDynamicContent fetches JavaScript-rendered content and resources
-func getDynamicContent(url string) (*types.DynamicContent, error) {
+func getDynamicContent(url string) (*models.DynamicContent, error) {
 	// Create context with timeout
 	ctx, cancel := chromedp.NewContext(context.Background())
 	defer cancel()
@@ -19,8 +19,8 @@ func getDynamicContent(url string) (*types.DynamicContent, error) {
 	ctx, cancel = context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
 
-	var content types.DynamicContent
-	var resources = make(map[string]types.Resource)
+	var content models.DynamicContent
+	var resources = make(map[string]models.Resource)
 
 	// Listen for network events
 	chromedp.ListenTarget(ctx, func(ev interface{}) {
@@ -33,7 +33,7 @@ func getDynamicContent(url string) (*types.DynamicContent, error) {
 					return
 				}
 				
-				resources[e.Response.URL] = types.Resource{
+				resources[e.Response.URL] = models.Resource{
 					URL:         e.Response.URL,
 					ContentType: e.Response.MimeType,
 					Data:        rbp,

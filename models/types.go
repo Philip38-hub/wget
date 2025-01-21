@@ -1,4 +1,4 @@
-package types
+package models
 
 // Resource represents a network resource
 type Resource struct {
