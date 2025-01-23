@@ -57,7 +57,7 @@ func NewProgress(total int64) *Progress {
 		lastPrint: now,
 		started:   now,
 		lastTime:  now,
-		width:     40, // Fixed width for the progress bar
+		width:     50, // Fixed width for the progress bar
 	}
 }
 
@@ -86,7 +86,7 @@ func (p *Progress) Start() {
 // Stop ends progress tracking
 func (p *Progress) Stop() {
 	p.printProgress()
-	fmt.Printf("\nTotal time: %s\n", formatDuration(time.Since(p.started)))
+	// fmt.Printf("\nTotal time: %s\n", formatDuration(time.Since(p.started)))
 }
 
 // calculateSpeed calculates the current download speed using a moving average

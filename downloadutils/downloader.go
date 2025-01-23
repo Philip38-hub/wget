@@ -94,7 +94,8 @@ func downloadFileWithProgress(url, outputPath string, rateLimit string, showProg
 	}
 
 	if showProgress {
-		fmt.Fprintf(output, "saving file to: ./%s\n", filepath.Base(outputPath))
+		fmt.Fprintf(output, "File name: %s\n", filepath.Base(outputPath))
+		fmt.Printf( "Saving file to: ./%s\n", outputPath)
 	}
 
 	// Create the file
@@ -134,7 +135,7 @@ func downloadFileWithProgress(url, outputPath string, rateLimit string, showProg
 		if progress != nil {
 			progress.Stop()
 		}
-		fmt.Fprintf(output, "Downloaded [%s]\n", url)
+		fmt.Fprintf(output, "\nDownloaded [%s]\n", url)
 		endTime := time.Now().Format("2006-01-02 15:04:05")
 		fmt.Fprintf(output, "finished at %s\n", endTime)
 	}
