@@ -95,7 +95,7 @@ func downloadFileWithProgress(url, outputPath string, rateLimit string, showProg
 
 	if showProgress {
 		fmt.Fprintf(output, "File name: %s\n", filepath.Base(outputPath))
-		fmt.Printf( "Saving file to: ./%s\n", outputPath)
+		fmt.Fprintf(output, "saving file to: ./%s\n", filepath.Base(outputPath))
 	}
 
 	// Create the file

@@ -93,19 +93,22 @@ func (p *Progress) Stop() {
 func (p *Progress) calculateSpeed() float64 {
 	now := time.Now()
 	elapsed := now.Sub(p.lastTime).Seconds()
-	
-	// Calculate bytes transferred since last update
+
+	if elapsed == 0 {
+		return 0 // Avoid division by zero
+	}
+
 	bytesDiff := p.current - p.lastBytes
-	
-	// Calculate speed
 	speed := float64(bytesDiff) / elapsed
-	
-	// Update last values
-	p.lastBytes = p.current
-	p.lastTime = now
-	
-	return speed
+
+	// Use a moving average to smooth speed fluctuations
+	const smoothingFactor = 0.8
+	if p.lastBytes == 0 {
+		return speed
+	}
+	return smoothingFactor*speed + (1-smoothingFactor)*float64(p.lastBytes)/elapsed
 }
+
 
 // printProgress prints the current progress
 func (p *Progress) printProgress() {

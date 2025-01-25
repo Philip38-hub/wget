@@ -2,6 +2,7 @@ package downloadutils
 
 import (
 	"io"
+	"sync"
 	"time"
 )
 
@@ -12,6 +13,7 @@ type RateLimitedReader struct {
 	lastRead   time.Time
 	bytesRead  int64
 	timeWindow time.Duration
+	mu         sync.Mutex
 }
 
 // NewRateLimitedReader creates a new rate-limited reader
@@ -20,36 +22,59 @@ func NewRateLimitedReader(reader io.ReadCloser, rateLimit int64) *RateLimitedRea
 		reader:     reader,
 		rateLimit:  rateLimit,
 		lastRead:   time.Now(),
-		timeWindow: time.Second, // Reset counter every second
+		bytesRead:  0,
+		timeWindow: time.Second,
 	}
 }
 
 func (r *RateLimitedReader) Read(p []byte) (int, error) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
 	now := time.Now()
-	
-	// Reset counter if we're in a new time window
-	if now.Sub(r.lastRead) >= r.timeWindow {
+	elapsed := now.Sub(r.lastRead)
+
+	// Calculate allowed bytes for the elapsed time
+	allowedBytes := int64(elapsed.Seconds() * float64(r.rateLimit))
+	if allowedBytes > r.rateLimit {
+		allowedBytes = r.rateLimit
+	}
+
+	// Reset counters if we're in a new time window
+	if elapsed >= r.timeWindow {
 		r.bytesRead = 0
 		r.lastRead = now
 	}
 
-	// Calculate how many bytes we can read in this request
-	remainingQuota := r.rateLimit - r.bytesRead
+	// Calculate remaining quota
+	remainingQuota := allowedBytes - r.bytesRead
+
 	if remainingQuota <= 0 {
-		// Sleep until the next time window
-		time.Sleep(r.timeWindow - now.Sub(r.lastRead))
+		// Sleep until more quota is available
+		time.Sleep(r.timeWindow - elapsed)
 		r.bytesRead = 0
 		r.lastRead = time.Now()
 		remainingQuota = r.rateLimit
 	}
 
-	// Limit the read size to respect the rate limit
-	if int64(len(p)) > remainingQuota {
-		p = p[:remainingQuota]
+	// Limit the read size to the remaining quota
+	readSize := int64(len(p))
+	if readSize > remainingQuota {
+		readSize = remainingQuota
 	}
 
-	n, err := r.reader.Read(p)
+	n, err := r.reader.Read(p[:readSize])
 	r.bytesRead += int64(n)
+
+	// Sleep if read size exceeds instantaneous allowed bytes
+	expectedReadDuration := time.Duration(float64(n) / float64(r.rateLimit) * float64(time.Second))
+	timeTaken := time.Since(r.lastRead)
+	if timeTaken < expectedReadDuration {
+		time.Sleep(expectedReadDuration - timeTaken)
+	}
+
+	r.lastRead = time.Now()
+
 	return n, err
 }
 
