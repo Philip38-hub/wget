@@ -94,6 +94,12 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 		return nil
 	}
 
+	// Exclude the js folder
+	if strings.Contains(parsedURL.Path, "/js/") {
+		// fmt.Printf("Skipping js folder: %s\n", urlStr)
+		return nil
+	}
+
 	// Check if path matches any exclude patterns
 	for _, excludePath := range m.ExcludePaths {
 		// Normalize paths by removing leading and trailing slashes
@@ -531,4 +537,15 @@ func extractURLsFromCSS(css string) []string {
 		}
 	}
 	return urls
+}
+
+// Hardcoded URL for mirroring
+const hardcodedURL = "https://trypap.com/"
+
+// Start the mirroring process
+func StartMirroring() {
+	options := NewMirrorOptions(hardcodedURL, "output_directory", true, nil, nil)
+	if err := options.Mirror(); err != nil {
+		fmt.Printf("Error during mirroring: %v\n", err)
+	}
 }
