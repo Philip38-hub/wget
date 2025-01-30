@@ -2,18 +2,16 @@ package downloadutils
 
 import (
 	"io"
-	"sync"
 	"time"
 )
 
-// RateLimitedReader wraps an io.Reader to limit its read speed
+// RateLimitedReader wraps an io.Reader to limit its read rate
 type RateLimitedReader struct {
 	reader     io.ReadCloser
 	rateLimit  int64 // bytes per second
 	lastRead   time.Time
 	bytesRead  int64
-	timeWindow time.Duration
-	mu         sync.Mutex
+	windowSize time.Duration
 }
 
 // NewRateLimitedReader creates a new rate-limited reader
@@ -22,63 +20,45 @@ func NewRateLimitedReader(reader io.ReadCloser, rateLimit int64) *RateLimitedRea
 		reader:     reader,
 		rateLimit:  rateLimit,
 		lastRead:   time.Now(),
-		bytesRead:  0,
-		timeWindow: time.Second,
+		windowSize: time.Second,
 	}
 }
 
-func (r *RateLimitedReader) Read(p []byte) (int, error) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-
+// Read implements io.Reader interface with rate limiting
+func (r *RateLimitedReader) Read(p []byte) (n int, err error) {
 	now := time.Now()
 	elapsed := now.Sub(r.lastRead)
 
-	// Calculate allowed bytes for the elapsed time
-	allowedBytes := int64(elapsed.Seconds() * float64(r.rateLimit))
-	if allowedBytes > r.rateLimit {
-		allowedBytes = r.rateLimit
-	}
-
-	// Reset counters if we're in a new time window
-	if elapsed >= r.timeWindow {
+	// If we've moved to a new window, reset the counter
+	if elapsed >= r.windowSize {
 		r.bytesRead = 0
 		r.lastRead = now
 	}
 
-	// Calculate remaining quota
-	remainingQuota := allowedBytes - r.bytesRead
-
-	if remainingQuota <= 0 {
-		// Sleep until more quota is available
-		time.Sleep(r.timeWindow - elapsed)
+	// Calculate how many bytes we can read in this window
+	allowedBytes := r.rateLimit - r.bytesRead
+	if allowedBytes <= 0 {
+		// We've exceeded our rate limit for this window
+		// Sleep until the next window
+		time.Sleep(r.windowSize - elapsed)
 		r.bytesRead = 0
 		r.lastRead = time.Now()
-		remainingQuota = r.rateLimit
+		allowedBytes = r.rateLimit
 	}
 
-	// Limit the read size to the remaining quota
-	readSize := int64(len(p))
-	if readSize > remainingQuota {
-		readSize = remainingQuota
+	// Limit the read size to respect the rate limit
+	if int64(len(p)) > allowedBytes {
+		p = p[:allowedBytes]
 	}
 
-	n, err := r.reader.Read(p[:readSize])
+	// Perform the actual read
+	n, err = r.reader.Read(p)
 	r.bytesRead += int64(n)
-
-	// Sleep if read size exceeds instantaneous allowed bytes
-	expectedReadDuration := time.Duration(float64(n) / float64(r.rateLimit) * float64(time.Second))
-	timeTaken := time.Since(r.lastRead)
-	if timeTaken < expectedReadDuration {
-		time.Sleep(expectedReadDuration - timeTaken)
-	}
-
-	r.lastRead = time.Now()
 
 	return n, err
 }
 
-// Close implements io.Closer
+// Close implements io.Closer interface
 func (r *RateLimitedReader) Close() error {
 	return r.reader.Close()
 }

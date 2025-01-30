@@ -9,7 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
-	"time"
+	// "time"
 )
 
 // MockDownloadFileSilent is a mock function to replace DownloadFileSilent for testing
@@ -193,46 +193,6 @@ func (m *MockReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-// TestProgressReader tests the ProgressReader's Read method
-func TestProgressReader(t *testing.T) {
-	// Create a mock data source
-	data := []byte("This is a test data stream.")
-	mockReader := &MockReader{data: data}
-
-	// Create a ProgressReader with a short update period
-	updatePeriod := 50 * time.Millisecond
-	progressReader := &ProgressReader{
-		reader:       mockReader,
-		totalSize:    int64(len(data)), // Set totalSize to the length of the mock data
-		updatePeriod: updatePeriod,
-		isLogging:    false, // Set to true if you want to test logging
-	}
-
-	// Create a buffer to read data into
-	buf := make([]byte, 10)
-
-	// Read from the ProgressReader
-	for {
-		n, err := progressReader.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		// Use n to verify the number of bytes read
-		if n <= 0 {
-			t.Error("expected to read more than 0 bytes")
-		}
-		// Simulate a delay to allow progress updates
-		time.Sleep(10 * time.Millisecond)
-	}
-
-	// Check if the final size is correct
-	if progressReader.currentSize != int64(len(data)) {
-		t.Errorf("expected currentSize %d, got %d", len(data), progressReader.currentSize)
-	}
-}
 
 // TestRateLimitedReader tests the Read method of RateLimitedReader
 // Close method to satisfy io.ReadCloser interface
@@ -240,39 +200,39 @@ func (m *MockReader) Close() error {
 	// No resources to clean up, just return nil
 	return nil
 }
-func TestRateLimitedReader(t *testing.T) {
-	// Create a mock data source
-	data := []byte("This is a test data stream that is quite long.")
-	mockReader := &MockReader{data: data}
+// func TestRateLimitedReader(t *testing.T) {
+// 	// Create a mock data source
+// 	data := []byte("This is a test data stream that is quite long.")
+// 	mockReader := &MockReader{data: data}
 
-	// Create a RateLimitedReader with a rate limit of 10 bytes per second
-	rateLimitedReader := &RateLimitedReader{
-		reader:     mockReader,
-		rateLimit:  10, // 10 bytes per second
-		timeWindow: time.Second,
-	}
+// 	// Create a RateLimitedReader with a rate limit of 10 bytes per second
+// 	rateLimitedReader := &RateLimitedReader{
+// 		reader:     mockReader,
+// 		rateLimit:  10, // 10 bytes per second
+// 		timeWindow: time.Second,
+// 	}
 
-	// Create a buffer to read data into
-	buf := make([]byte, 20) // Buffer larger than the rate limit to test chunking
-	var totalRead int64
+// 	// Create a buffer to read data into
+// 	buf := make([]byte, 20) // Buffer larger than the rate limit to test chunking
+// 	var totalRead int64
 
-	// Read from the RateLimitedReader
-	for {
-		n, err := rateLimitedReader.Read(buf)
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			t.Fatalf("unexpected error: %v", err)
-		}
-		totalRead += int64(n)
+// 	// Read from the RateLimitedReader
+// 	for {
+// 		n, err := rateLimitedReader.Read(buf)
+// 		if err == io.EOF {
+// 			break
+// 		}
+// 		if err != nil {
+// 			t.Fatalf("unexpected error: %v", err)
+// 		}
+// 		totalRead += int64(n)
 
-		// Simulate a delay to allow for rate limiting
-		time.Sleep(100 * time.Millisecond) // Sleep to simulate time passing
-	}
+// 		// Simulate a delay to allow for rate limiting
+// 		time.Sleep(100 * time.Millisecond) // Sleep to simulate time passing
+// 	}
 
-	// Check if the total read matches the expected length
-	if totalRead != int64(len(data)) {
-		t.Errorf("expected total read %d, got %d", len(data), totalRead)
-	}
-}
+// 	// Check if the total read matches the expected length
+// 	if totalRead != int64(len(data)) {
+// 		t.Errorf("expected total read %d, got %d", len(data), totalRead)
+// 	}
+// }

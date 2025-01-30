@@ -9,7 +9,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"wget/models"
 )
 
 // parseRateLimit parses rate limit string (e.g., "100k", "1M") into bytes per second
@@ -89,7 +88,7 @@ func downloadFileWithProgress(url, outputPath string, rateLimit string, showProg
 	}
 
 	// Create parent directory if it doesn't exist
-	if err := os.MkdirAll(filepath.Dir(outputPath), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(outputPath), 0o755); err != nil {
 		return fmt.Errorf("failed to create directory: %v", err)
 	}
 
@@ -99,7 +98,7 @@ func downloadFileWithProgress(url, outputPath string, rateLimit string, showProg
 	}
 
 	// Create the file
-	out, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
+	out, err := os.OpenFile(outputPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o644)
 	if err != nil {
 		return fmt.Errorf("failed to create file: %v", err)
 	}
@@ -113,14 +112,14 @@ func downloadFileWithProgress(url, outputPath string, rateLimit string, showProg
 			return fmt.Errorf("failed to parse rate limit: %v", err)
 		}
 		if rateLimitBytes > 0 {
-			reader = models.NewRateLimitedReader(resp.Body, rateLimitBytes)
+			reader = NewRateLimitedReader(resp.Body, rateLimitBytes)
 		}
 	}
 
 	// Initialize progress tracking if needed
-	var progress *models.Progress
+	var progress *Progress
 	if showProgress && output == os.Stdout {
-		progress = models.NewProgress(size)
+		progress = NewProgress(size)
 		progress.Start()
 		reader = io.TeeReader(reader, progress)
 	}
