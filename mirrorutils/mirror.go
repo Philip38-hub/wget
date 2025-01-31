@@ -96,13 +96,11 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 
 	// Exclude the js folder
 	if strings.Contains(parsedURL.Path, "/js/") {
-		// fmt.Printf("Skipping js folder: %s\n", urlStr)
 		return nil
 	}
 
 	// Check if path matches any exclude patterns
 	for _, excludePath := range m.ExcludePaths {
-		// Normalize paths by removing leading and trailing slashes
 		normalizedExclude := strings.Trim(excludePath, "/")
 		normalizedPath := strings.Trim(parsedURL.Path, "/")
 
@@ -117,29 +115,26 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 	if filename == "" || filename == "/" {
 		filename = "index.html"
 	}
-	
+
 	// Flag to track if this file should be saved
 	shouldSaveFile := true
-	
+
 	// First check full filename
 	for _, rejectedType := range m.RejectTypes {
 		if strings.EqualFold(filename, rejectedType) {
 			fmt.Printf("Skipping rejected file: %s\n", urlStr)
 			shouldSaveFile = false
-			// Don't return here, we still want to process the file for links
 		}
 	}
 
 	// Then check extension
 	ext := strings.ToLower(filepath.Ext(parsedURL.Path))
 	if ext != "" {
-		// Remove leading dot if present
 		ext = strings.TrimPrefix(ext, ".")
 		for _, rejectedType := range m.RejectTypes {
 			if strings.EqualFold(ext, rejectedType) {
 				fmt.Printf("Skipping rejected file type: %s\n", urlStr)
 				shouldSaveFile = false
-				// Don't return here, we still want to process the file for links
 			}
 		}
 	}
@@ -181,7 +176,7 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 
 	// Prepare output path for all cases
 	outputPath := filepath.Join(m.OutputDir, m.convertToLocalPath(parsedURL))
-	
+
 	// If path ends with a slash, append index.html
 	if strings.HasSuffix(outputPath, "/") || outputPath == m.OutputDir {
 		outputPath = filepath.Join(outputPath, "index.html")
@@ -236,10 +231,12 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 
 						// Only process URLs from the same domain
 						if absURL.Host == m.baseHost {
-							// Update attribute to use local path
-							localPath := m.convertLinkPath(parsedURL, absURL)
+							// Update attribute to use local path or remote URL based on ConvertLinks
 							if m.ConvertLinks {
+								localPath := m.convertLinkPath(parsedURL, absURL)
 								n.Attr[i].Val = localPath
+							} else {
+								n.Attr[i].Val = absURL.String()
 							}
 
 							// Skip downloading if it's a fragment or query-only change
@@ -517,12 +514,12 @@ func containsDynamicSegments(parts []string) bool {
 	for _, part := range parts {
 		for _, pattern := range dynamicPatterns {
 			if strings.EqualFold(part, pattern) {
-				return true
+				return true;
 			}
 		}
 	}
 	
-	return false
+	return false;
 }
 
 // extractURLsFromCSS extracts URLs from CSS content

@@ -49,7 +49,7 @@ func main() {
 		defer logFile.Close()
 
 		// Print message and start download in background
-		fmt.Println("Output will be written to \"wget-log\"")
+		fmt.Print("Output will be written to \"wget-log\"\n")
 
 		// Get filename from URL
 		url := options.URLs[0]
