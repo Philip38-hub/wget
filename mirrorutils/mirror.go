@@ -60,11 +60,11 @@ func (m *MirrorOptions) Mirror() error {
 	fmt.Printf("Starting mirror of %s\n", m.URL)
 	fmt.Printf("Output directory: %s\n", m.OutputDir)
 
-	return m.processURL(m.URL)
+	return m.ProcessUrl(m.URL)
 }
 
-// processURL downloads and processes a single URL
-func (m *MirrorOptions) processURL(urlStr string) error {
+// ProcessUrl downloads and processes a single URL
+func (m *MirrorOptions) ProcessUrl(urlStr string) error {
 	// Clean the URL by removing fragments and normalizing query parameters
 	parsedURL, err := url.Parse(urlStr)
 	if err != nil {
@@ -249,7 +249,7 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 
 							// Download linked resource
 							m.currentDepth++
-							if err := m.processURL(absURL.String()); err != nil {
+							if err := m.ProcessUrl(absURL.String()); err != nil {
 								fmt.Printf("Warning: Failed to process URL %s: %v\n", absURL.String(), err)
 							}
 							m.currentDepth--
@@ -282,7 +282,7 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 								}
 
 								m.currentDepth++
-								if err := m.processURL(absURL.String()); err != nil {
+								if err := m.ProcessUrl(absURL.String()); err != nil {
 									fmt.Printf("Warning: Failed to process URL %s: %v\n", absURL.String(), err)
 								}
 								m.currentDepth--
@@ -328,7 +328,7 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 							}
 
 							m.currentDepth++
-							if err := m.processURL(absURL.String()); err != nil {
+							if err := m.ProcessUrl(absURL.String()); err != nil {
 								fmt.Printf("Warning: Failed to process URL %s: %v\n", absURL.String(), err)
 							}
 							m.currentDepth--
@@ -384,7 +384,7 @@ func (m *MirrorOptions) processURL(urlStr string) error {
 				}
 
 				m.currentDepth++
-				if err := m.processURL(absURL.String()); err != nil {
+				if err := m.ProcessUrl(absURL.String()); err != nil {
 					fmt.Printf("Warning: Failed to process URL %s: %v\n", absURL.String(), err)
 				}
 				m.currentDepth--
@@ -415,17 +415,17 @@ func (m *MirrorOptions) resolveURL(base *url.URL, ref string) (*url.URL, error) 
 func (m *MirrorOptions) convertToLocalPath(u *url.URL) string {
 	// Get the path without query parameters and fragments
 	cleanPath := u.Path
-	
+
 	// Split the path into components
 	parts := strings.Split(strings.TrimPrefix(cleanPath, "/"), "/")
-	
+
 	// Handle dynamic paths
 	if len(parts) > 0 {
 		// Convert paths with extensions to files
 		if hasFileExtension(parts[len(parts)-1]) {
 			return filepath.Join(u.Host, cleanPath)
 		}
-		
+
 		// Handle paths that look like API endpoints or dynamic routes
 		// Examples: /api/v1/users, /users/123, /repo/branch/path
 		if containsNumericID(cleanPath) || containsDynamicSegments(parts) {
@@ -433,15 +433,15 @@ func (m *MirrorOptions) convertToLocalPath(u *url.URL) string {
 			return filepath.Join(u.Host, "pages", cleanPath, "index.html")
 		}
 	}
-	
+
 	// Default handling for other paths
 	path := filepath.Join(u.Host, strings.TrimPrefix(cleanPath, "/"))
-	
+
 	// If path is empty or ends with a slash, append index.html
 	if path == u.Host || strings.HasSuffix(path, "/") || !hasFileExtension(path) {
 		path = filepath.Join(path, "index.html")
 	}
-	
+
 	return path
 }
 
@@ -503,23 +503,23 @@ func containsDynamicSegments(parts []string) bool {
 	// Common dynamic path patterns
 	dynamicPatterns := []string{
 		"api",
-		"v1", "v2", "v3",  // API versions
-		"blob", "tree",    // Repository patterns
+		"v1", "v2", "v3", // API versions
+		"blob", "tree", // Repository patterns
 		"branch", "tag",
 		"commit", "pull",
 		"issues", "wiki",
 		"raw", "edit",
 	}
-	
+
 	for _, part := range parts {
 		for _, pattern := range dynamicPatterns {
 			if strings.EqualFold(part, pattern) {
-				return true;
+				return true
 			}
 		}
 	}
-	
-	return false;
+
+	return false
 }
 
 // extractURLsFromCSS extracts URLs from CSS content

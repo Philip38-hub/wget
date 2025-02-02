@@ -1,15 +1,17 @@
 package downloadutils
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"math"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
 	"testing"
-	// "time"
+	"time"
 )
 
 // MockDownloadFileSilent is a mock function to replace DownloadFileSilent for testing
@@ -193,46 +195,150 @@ func (m *MockReader) Read(p []byte) (int, error) {
 	return n, nil
 }
 
-
 // TestRateLimitedReader tests the Read method of RateLimitedReader
 // Close method to satisfy io.ReadCloser interface
 func (m *MockReader) Close() error {
 	// No resources to clean up, just return nil
 	return nil
 }
-// func TestRateLimitedReader(t *testing.T) {
-// 	// Create a mock data source
-// 	data := []byte("This is a test data stream that is quite long.")
-// 	mockReader := &MockReader{data: data}
 
-// 	// Create a RateLimitedReader with a rate limit of 10 bytes per second
-// 	rateLimitedReader := &RateLimitedReader{
-// 		reader:     mockReader,
-// 		rateLimit:  10, // 10 bytes per second
-// 		timeWindow: time.Second,
-// 	}
+// TestParseRateLimit tests the parseRateLimit function.
+func TestParseRateLimit(t *testing.T) {
+	tests := []struct {
+		rate     string
+		expected int64
+		err      bool
+	}{
+		{"100k", 102400, false},
+		{"1M", 1048576, false},
+		{"abc", 0, true},
+	}
 
-// 	// Create a buffer to read data into
-// 	buf := make([]byte, 20) // Buffer larger than the rate limit to test chunking
-// 	var totalRead int64
+	for _, test := range tests {
+		result, err := parseRateLimit(test.rate)
+		if (err != nil) != test.err {
+			t.Errorf("parseRateLimit(%q) error = %v, wantErr %v", test.rate, err, test.err)
+			continue
+		}
+		if result != test.expected {
+			t.Errorf("parseRateLimit(%q) = %v, want %v", test.rate, result, test.expected)
+		}
+	}
+}
 
-// 	// Read from the RateLimitedReader
-// 	for {
-// 		n, err := rateLimitedReader.Read(buf)
-// 		if err == io.EOF {
-// 			break
-// 		}
-// 		if err != nil {
-// 			t.Fatalf("unexpected error: %v", err)
-// 		}
-// 		totalRead += int64(n)
+// TestFormatDuration tests the formatDuration function.
+func TestFormatDuration(t *testing.T) {
+	tests := []struct {
+		duration time.Duration
+		expected string
+	}{
+		{500 * time.Millisecond, "< 1s"},
+		{5 * time.Second, "5s"},
+		{2*time.Minute + 30*time.Second, "2m30s"},
+	}
 
-// 		// Simulate a delay to allow for rate limiting
-// 		time.Sleep(100 * time.Millisecond) // Sleep to simulate time passing
-// 	}
+	for _, test := range tests {
+		result := formatDuration(test.duration)
+		if result != test.expected {
+			t.Errorf("formatDuration(%v) = %v, want %v", test.duration, result, test.expected)
+		}
+	}
+}
 
-// 	// Check if the total read matches the expected length
-// 	if totalRead != int64(len(data)) {
-// 		t.Errorf("expected total read %d, got %d", len(data), totalRead)
-// 	}
-// }
+// TestCalculateSpeed tests the calculateSpeed function.
+func TestCalculateSpeed(t *testing.T) {
+	p := &Progress{
+		current:   0,
+		lastBytes: 0,
+		lastTime:  time.Now(),
+	}
+
+	// Test initial speed calculation
+	speed := p.calculateSpeed()
+	if speed != 0 {
+		t.Errorf("calculateSpeed() = %v, want 0", speed)
+	}
+
+	// Simulate a download
+	p.current = 1000
+	p.lastBytes = 0
+	p.lastTime = time.Now().Add(-1 * time.Second) // 1 second ago
+
+	speed = math.Round(p.calculateSpeed())
+	if speed != 1000.0 {
+		t.Errorf("calculateSpeed() = %v, want 1000.0", speed)
+	}
+
+	// Test smoothing
+	p.lastBytes = 500
+	p.current = 1500
+	p.lastTime = time.Now().Add(-1 * time.Second) // 1 second ago
+
+	speed = math.Round(p.calculateSpeed())
+	expectedSpeed := 0.8*1000.0 + 0.2*500.0 // Applying smoothing
+	if speed != expectedSpeed {
+		t.Errorf("calculateSpeed() = %v, want %v", speed, expectedSpeed)
+	}
+}
+
+func TestRateLimitedReader_Read(t *testing.T) {
+	tests := []struct {
+		name           string
+		rateLimit      int64
+		windowSize     time.Duration
+		inputData      []byte
+		readSize       int
+		expectedOutput []byte
+	}{
+		{
+			name:           "Read within rate limit",
+			rateLimit:      10,
+			windowSize:     1 * time.Second,
+			inputData:      []byte("HelloWorld"), // 10 bytes
+			readSize:       5,
+			expectedOutput: []byte("Hello"), // Expect to read 5 bytes
+		},
+		{
+			name:           "Exceed rate limit",
+			rateLimit:      5,
+			windowSize:     1 * time.Second,
+			inputData:      []byte("HelloWorld"), // 10 bytes
+			readSize:       10,
+			expectedOutput: []byte("Hello"), // Expect to read only 5 bytes and wait
+		},
+		{
+			name:           "Read zero bytes",
+			rateLimit:      10,
+			windowSize:     1 * time.Second,
+			inputData:      []byte("HelloWorld"), // 10 bytes
+			readSize:       0,
+			expectedOutput: []byte(""), // Expect to read 0 bytes
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			mockReader := &MockReader{data: tt.inputData}
+			rlReader := &RateLimitedReader{
+				reader:     mockReader,
+				rateLimit:  tt.rateLimit,
+				windowSize: tt.windowSize,
+			}
+
+			output := make([]byte, tt.readSize)
+			n, err := rlReader.Read(output)
+
+			if err != nil && err != io.EOF {
+				t.Fatalf("expected no error, got %v", err)
+			}
+
+			if n != len(tt.expectedOutput) {
+				t.Errorf("expected to read %d bytes, got %d", len(tt.expectedOutput), n)
+			}
+
+			if !bytes.Equal(output[:n], tt.expectedOutput) {
+				t.Errorf("expected output %v, got %v", tt.expectedOutput, output[:n])
+			}
+		})
+	}
+}

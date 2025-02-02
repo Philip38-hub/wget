@@ -17,20 +17,6 @@ type Progress struct {
 	lastTime  time.Time // Track time since last update
 }
 
-// formatSize formats bytes into human readable format
-func formatSize(bytes int64) string {
-	const unit = 1024
-	if bytes < unit {
-		return fmt.Sprintf("%d B", bytes)
-	}
-	div, exp := int64(unit), 0
-	for n := bytes / unit; n >= unit; n /= unit {
-		div *= unit
-		exp++
-	}
-	return fmt.Sprintf("%.1f %ciB", float64(bytes)/float64(div), "KMG"[exp])
-}
-
 // formatDuration formats duration in a human-readable format
 func formatDuration(d time.Duration) string {
 	if d < time.Second {
@@ -129,8 +115,8 @@ func (p *Progress) printProgress() {
 
 		fmt.Printf("\r[%s] %s @ %s/s Time: %s", 
 			bar,
-			formatSize(p.current),
-			formatSize(int64(speed)),
+			FormatSize(p.current),
+			FormatSize(int64(speed)),
 			formatDuration(elapsed),
 		)
 		return
@@ -159,9 +145,9 @@ func (p *Progress) printProgress() {
 	fmt.Printf("\r[%s] %.1f%% %s/%s @ %s/s Time: %s ETA: %s",
 		bar,
 		percent,
-		formatSize(p.current),
-		formatSize(p.total),
-		formatSize(int64(speed)),
+		FormatSize(p.current),
+		FormatSize(p.total),
+		FormatSize(int64(speed)),
 		formatDuration(elapsed),
 		eta,
 	)
